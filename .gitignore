@@ -1,0 +1,11 @@
+*.duckdb
+*.duckdb.wal
+duckdb_tmp/
+sync_tmp/
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+logs/
+.env
+.pytest_cache/

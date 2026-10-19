@@ -1,0 +1,13 @@
+tally-to-duckdb
+Copyright (c) 2026 Rajesh D (MIT, see LICENSE)
+
+The Tally export definition (tally/tally-export-config-incremental.yaml) and
+the Tally table definitions (tally/database-structure-incremental.sql, and
+schema/002_tally_raw.sql which is generated from it) come from the open-source
+"Tally Database Loader" by dhananjay1405, MIT licence:
+https://github.com/dhananjay1405/tally-database-loader
+
+The request-building and incremental-sync logic in tally_to_duckdb/client.py
+and sync.py follows that project's design. All credit for that work belongs to
+its author; this project does not claim it. Its licence text applies to those
+parts and is reproduced by reference at the URL above.

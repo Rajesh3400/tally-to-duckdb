@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tally-to-duckdb"
+version = "0.1.0"
+description = "Sync Tally Prime (XML/HTTP port) into a DuckDB file, with integrity guards and a tie-out against Tally's own balances."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Rajesh D" }]
+dependencies = [
+    "duckdb==1.5.5",   # pinned exactly: a DuckDB upgrade can change the file format
+    "pyyaml>=6.0",
+    "pytz>=2024.1",     # DuckDB needs it to return TIMESTAMPTZ columns
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+tally-to-duckdb = "tally_to_duckdb.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tally_to_duckdb"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schema" = "tally_to_duckdb/schema"
+"tally" = "tally_to_duckdb/tally"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
