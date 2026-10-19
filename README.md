@@ -171,14 +171,34 @@ have tripped on that pattern); joins are by the columns below.
 
 ### Raw layer: schema `tally`
 
-One table per Tally collection, from the loader's definition (32 tables), each
-with a leading `source_id` column and **no primary keys**: `mst_group`,
-`mst_ledger`, `mst_vouchertype`, `mst_cost_centre`, `mst_stock_item`, ... and
-`trn_voucher`, `trn_accounting`, `trn_inventory`, `trn_cost_centre`,
-`trn_bank`, `trn_bill`, ... (see `schema/002_tally_raw.sql`). Within a source a
-row is identified by `guid` (voucher child tables carry the voucher's `guid`
-plus `_ledger`, `_costcentre`, ... GUID references). Row order is preserved
-(insertion order), which stock calculations built on top rely on.
+Nine tables, each with a leading `source_id` column and **no primary keys**
+(`schema/002_tally_raw.sql`). Within a source a row is identified by `guid`
+(voucher child tables carry the voucher's `guid` plus `_ledger`, `_costcentre`
+GUID references). Row order is preserved (insertion order), which stock
+calculations built on top rely on.
+
+| Table | Holds | Needed because |
+|---|---|---|
+| `mst_group` | Tally's group tree (`parent`, `primary_group`) | rename cascade into `mst_ledger.parent` (`sync.py` cascade_update); the group tree for reports built on the mirror |
+| `mst_ledger` | ledgers and their opening balance, `is_revenue` | `derive.py` dim_ledger, `tieout.py` checks, `_verify` master-reference check |
+| `mst_vouchertype` | voucher types | `pending_bills.py` (base type), auto-numbering refresh in `sync.py` |
+| `mst_cost_centre` | cost centres and categories | `derive.py` dim_cc, `_verify` master-reference check |
+| `mst_stock_item` | stock items, opening value | tie-out Profit & Loss A/c rule (`tieout.py`) |
+| `trn_voucher` | one row per voucher: date, type, number | the incremental diff, the integrity counts (`_verify`, `_judge_window`), `fact_line` |
+| `trn_accounting` | ledger lines of a voucher | `fact_line`, tie-out, window checks (lines must net to zero) |
+| `trn_cost_centre` | cost-centre allocations of a ledger line | `fact_line` at cost-centre grain |
+| `trn_inventory` | stock lines of a voucher | `pending_bills.py` (purchase bills to come) |
+
+The upstream Tally Database Loader defines 32 collections. The other 23 (UoM,
+godown, stock categories/groups, cost categories, employees/payheads/attendance,
+GST rates, batch and bill allocations, bank allocations, standard cost/price and
+the extra cost-allocation tables) are **deliberately not fetched**, so each sync
+makes 23 fewer requests to Tally and stores less. To add one back: copy its
+block from the upstream `tally-export-config-incremental.yaml` and
+`database-structure-incremental.sql` into `tally/`, add its `CREATE TABLE
+tally.<name>` (with `source_id INTEGER NOT NULL` first) in a new numbered file
+under `schema/`, and re-add any `cascade_update` / `cascade_delete` entries that
+point at it. Run a full sync once to fill it.
 
 ### Control tables
 
@@ -264,6 +284,8 @@ Measured on **one installation**; your numbers will vary, mostly with Tally.
   Tally and up to an hour on a loaded one. Incremental syncs are much smaller.
 - A rehearsal pulling ~50k vouchers and ~170k accounting lines in 12 windows,
   checking that every voucher balanced, took about **2 minutes**.
+- Only the 9 collections the code reads are requested (the upstream loader
+  has 32), so a sync makes far fewer requests to Tally than a full mirror would.
 - A trial-balance style query over the derived tables ran in roughly
   **0.1-0.3 s** on a ~3,500-ledger company.
 
@@ -289,7 +311,7 @@ Measured on **one installation**; your numbers will vary, mostly with Tally.
 - **"Profit & Loss A/c"** is a derived ledger; its closing is checked with the
   rule above, either with or without pending purchase bills.
 - **Stock valuation is not included** (no FIFO/average costing, no stock
-  reports). Only the raw inventory tables and what the tie-out needs
+  reports). Only the raw `trn_inventory` table and what the tie-out needs
   (`pending_bills.py`) are present. No GST or other statutory reports.
 - One sync at a time (single DuckDB writer). Only Tally Prime on Windows has
   been tested. Read-only towards Tally.

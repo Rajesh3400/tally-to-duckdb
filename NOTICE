@@ -11,3 +11,6 @@ The request-building and incremental-sync logic in tally_to_duckdb/client.py
 and sync.py follows that project's design. All credit for that work belongs to
 its author; this project does not claim it. Its licence text applies to those
 parts and is reproduced by reference at the URL above.
+
+The two files under tally/ are TRIMMED copies: 23 of the upstream 32 collections
+were removed (listed in each file's header); the remaining entries are unchanged.
