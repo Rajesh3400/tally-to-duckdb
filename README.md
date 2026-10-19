@@ -30,6 +30,39 @@ verify. It is read-only towards Tally - it never writes back.
  tie-out - ours vs Tally's closing balances, after the commit
 ```
 
+## Why this exists
+
+Tally is the accounting system of record for a very large share of small and
+mid-sized businesses, especially in India. It is excellent at bookkeeping but
+rigid as a reporting source: custom reports mean TDL programming, Excel exports
+that go stale the moment they are taken, or manual re-keying - none of which
+scales to multi-company groups, month-on-month analysis, or reconciliation
+against other systems such as bank statements.
+
+tally-to-duckdb keeps a **complete, verified mirror** of Tally in one DuckDB
+file that any SQL tool, BI dashboard, notebook or spreadsheet can query. Reports
+are built on the mirror instead of on Tally's export screens; Tally stays the
+system of record.
+
+What makes the mirror trustworthy rather than "just an export":
+
+- **Proven complete.** Every voucher is fetched exactly once, every accounting
+  voucher balances, and every ledger's closing equals Tally's to the paisa. A
+  pull that fails these checks is refused - never half-written.
+- **Defends against Tally's own quirks** found in production: ignored date
+  filters, short or empty answers under memory pressure, AlterIDs that go
+  backwards after a restore, ledger closings that go stale under incremental
+  sync (see [Limitations](#limitations-and-tally-quirks)).
+- **Efficient.** One fact table holds every posting of every company and
+  financial year at cost-centre grain, backed by a 9-table raw mirror; only the
+  Tally collections actually used are fetched.
+- **Incremental.** Nightly syncs fetch only what changed, with a forced full
+  resync whenever Tally's history is rewritten.
+
+It was extracted from the data layer of a multi-company MIS running in
+production, where its figures were checked against the previous system with
+zero differences across several thousand reported numbers.
+
 ## Requirements and install
 
 - Tally Prime running on the PC, the company open, and its **XML/HTTP server
